@@ -1,11 +1,11 @@
 # Multi Level CLI
 
-The module support command line parsing of complex (i.e. with multiple commands) and nested (multi level) CLIs such as the
+This module supports command line parsing of complex (multi-command) and nested (multi-level) CLIs such as the
 "Cisco" CLI or the GCP _gcloud_ cli. 
 
-The main features multilevelcli provide are:
+The main features multilevelcli provides are:
 * support for multiple commands
-* commands grouping
+* command grouping
 * nested groups
 * automatic tree generation
 * level aware options parsing
@@ -13,10 +13,10 @@ The main features multilevelcli provide are:
 * nested arguments and options types support and parsing
 
 # Comparison to argparse module
-**multilevelcli** is not compatible and not exactly a superset of argparse. It is not designed as
+**multilevelcli** is not compatible with and not exactly a superset of argparse. It is not designed as an
 argparse substitute in the general case. It is meant to be used for complex CLI cases where the standard 
-argparse is hard to use and lacking. For most applications
- the cmdline parsing may be easier with argparse. in fact **multilevelcli** doesn't support single command CLIs.
+argparse is hard to use and lacking functionality. For most applications
+ the cmdline parsing may be easier with argparse. In fact **multilevelcli** doesn't support single command CLIs.
 
 Still there are some areas where **multilevelcli** may be generally better:
 * It is simpler to use programmatically - i.e. to generate CLI from some other structured definition language such
@@ -33,30 +33,30 @@ The following argparse features are not supported (probably a partial list):
 * **choices**
 * **required** options (as having a 'required' option is a little bit odd, isn't it?)
 * **metavar** (multilevelcli uses the arg type)
-* **dest** (multilevelcli always use the arg name)
+* **dest** (multilevelcli always uses the arg name)
 
 # The general model of operation
-Basically the multilevelcli follows the argparse model. A parser need to defined, all of the groups,
+Basically the multilevelcli follows the argparse model. A parser needs to be defined, and all of the groups,
 commands, arguments and options must be defined before you start the parsing.
-After the parser is called, a namespace object is returned. The namespace object is a similar
+After the parser is called, a namespace object is returned. The namespace object is similar
 in principle to the argparse namespace object, but is much more powerful as it supports levels, groups
 and nested types.  
 
 # Multilevelcli entities
 
 ## Parser
-The parser is the main class. You must define at least one MultiLevelArgParse parser class and provide it a name.
+The parser is the main class. You must create at least one MultiLevelArgParse instance and specify a name for it.
 For example:
 
     cli = multilevelcli.MultiLevelArgParse("testcli1")
     
 ## Command
-The entire pupose of the CLI is to let the user to issue a command with parameters and/or options. Any flow
-that doesn't end with a parsable command is an unfinished flow and by default the help usage will be shown
-to help the user to add the missing parts. This behavior can be changed (see default handling below).
-Use the **add_command()** function to add a cli command. Any number of commands may be added on each level.
-command may have (mandatory) positional arguments and optional nonpositional options (see below).
-A command need at least a name (level unique). The description is optional
+The entire pupose of the CLI is to let the user issue commands with parameters and/or options. Any flow
+that doesn't end up with a parsable command is an unfinished flow and by default the help usage will be shown
+to guide the user to add the missing parts. This behavior can be changed (see default handling below).
+Use the **add_command()** method to add a cli command. Any number of commands may be added on each level.
+Each command may have (mandatory) positional arguments and optional nonpositional options (see below).
+A command needs at least a name (level unique). The description is optional
 but of course highly desirable if meaningful help/usage screens are required.
 The add_command() function returns
 a command object. Store that object if you need to add options or arguments to it.
@@ -66,9 +66,9 @@ For example:
     list_cmd = cli.add_command("list", description="list all entities")
     
 ## Argument
-Use the **add_argument()** to add a positional argument to a command (object). The arguments order is set
+Use the **add_argument()** to add a positional argument to a command (object). The arguments order is determined
 by the creation order. All arguments are mandatory. 
-A (command scope unique) name must be provided for each argument and used to retrieve the argument value.
+A (command scope unique) name must be provided for each argument and is used to retrieve the argument value.
 An optional description can be provided as well as 
 argtype (see the _types_ section below). The default argtype is 'str'.
 
@@ -82,16 +82,16 @@ A description is optional. If no opttype is provided the option is boolean (i.e.
 An option type can be of any supported type (see the _types_ section below).
 For example:
 
-    cli.add_option('q', 'quiet', description="do not emit messages") # root (group) level option
-    list_cmd.add_option(None, 'id', description="id of the listed object") # command level option, only long
+    cli.add_option('q', 'quiet', description="do not emit messages") # root (group) level option.  short (-q) and long (--quiet)
+    list_cmd.add_option(None, 'id', description="id of the listed object") # command level option (only long - i.e., --id)
     
 ## Group
 Group is used to create a new level of commands. In most cases it aggregates commands on a specific object or topic.
-For example the gcp cli **gcloud** have a _compute_ group that aggregates 'images', 'instances', 'ssh', etc.
-The cli parser object is the root group. and level 1 groups are attached to it.
-Group levels are generated by groups nesting.
-On each level, groups and commands may be used together. The resulted group object need to
-be stored such that you can add options, groups and/or commands to it.
+For example the gcp cli **gcloud** has a _compute_ group that aggregates 'images', 'instances', 'ssh', etc.
+The cli parser object is the root group, and level 1 groups are attached to it.
+Group levels are generated via nesting.
+On each level, groups and commands may be used together. The resulting group object needs to
+be stored so that you can add options, groups and/or commands to it.
 For example:
 
     compute = cli.add_group("compute")
@@ -100,26 +100,27 @@ For example:
     instances.add_command("new")
 
 ## CliResult 
-ClieResult is the object returned by the cli parser. It contains the parsing results and the
-final values of the selected command, the command parameters and the options. Seperated namespaces
+CliResult is the object returned at runtime by the cli parser's `cli.parse()` method. It contains the parsing results and the
+final values of the selected command, the command parameters and the options. Seperate namespaces
 (dictionaries) are maintained for each level.
 The most significant methods are:
-- .**command**() - returns the selected command object
-- .**group**() - returns the group of the selected command
-- .**args**() - return the selected command arguments namespace
-- .**opt**() - return the selected command options namespace
+- .**command**() - returns the command object matching the user's input
+- .**group**() - returns the group to which the command belongs
+- .**args**() - returns the selected command arguments namespace
+- .**opt**() - returns the selected command options namespace
 - .**ns**(level=None) - return the requested level namespace, and the command level namespace by default
-- .**unparsed_tokens**() - return the tokens not parsed. This is required to during partial parsing
+- .**unparsed_tokens**() - return the tokens that were not parsed. This is required  during partial parsing.
 - .**command_ctx**() - get the user defined command context (see below)
 
 ## Namespace
 The multilevelcli parser returns a namespace object that provides flat namespace (dictionary) of all options
 and arguments set during parsing and also per level dictionaries.
+**[TODO: further explanation required]**
 
 ## Command tree generation
-A complete command tree that lists all groups and the commands in each group can be generated
-by calling the parser show_tree() method. There is no default binding
-to that function such that the program must explicitly call this function as an implementation of a command
+A complete command tree listing all groups and the commands in each group can be printed
+by calling the `cli.show_tree()` method. There is no default binding
+to this function, and the program must explicitly call this function as an implementation of a command
 or option.
 An example of such output:
 
@@ -136,8 +137,8 @@ If no command is found the default function is triggered. By default it is set t
 this can be changed by setting **defaultfn** or by passing a defaultfn argument during the group and/or command
 initialization and or the parser. A default fn is a function that accepts a
 single _MultiLevelCliBase.GroupType_ argument.
-Several predefined utility functions exists, for example _usage_and_raise_no_command_ that raises a NoCommnad
-exception instread of exiting (such that the program can trap it and handle it).
+Several predefined utility functions exist, for example _usage_and_raise_no_command_ that raises a NoCommand
+exception instead of exiting (so that the program can trap and handle it).
 For example:
 
     # root level default handling
@@ -145,11 +146,17 @@ For example:
     # 'class' group default
     class_group = cli.add_group("class", defaultfn=usage_and_raise_no_command)
 
+    try:
+        parsed_input = cli.parse()
+    except NoCommand:
+        print("No command was entered.  Valid commands:")
+        cli.show_tree()
+
 ## Help generation
-By default the options '-h' '--help' calls the default help function **defhelpfn** that is set to _usage_and_exit_.
+By default the options '-h' and '--help' call the default help function **defhelpfn** that is set to _usage_and_exit_.
 To change this you can change the defhelpfn variable and/or pass the help argument during group/command
-initializtion. A help function is a function that accepts a single _MultiLevelCliBase.ParseBase_ arguemnt.
-Setting the help function to None disable the default help handling.
+initializtion. A help function is a function that accepts a single _MultiLevelCliBase.ParseBase_ argument.
+Setting the help function to None disables the default help handling.
 For example:
 
     # group level help override
@@ -158,9 +165,8 @@ For example:
     cmd = alpha_group.add_command("list", help=usage_help_and_raise_nocommand)
 
 ## Command user context
-A ser context can be set during command initialization such that this context is returned via the
-namespace in the CliResult (see above). A different context can be set for each command. This help
-for automatic cli generation. For example:
+A user context can be set during command initialization. This context is returned via the
+namespace in the CliResult (see above). A different context can be set for each command. This is especially useful for automatic cli generation **[TODO: explain how]**. For example:
 
     beta_group.add_command("test", ctx="context")
     ...
@@ -168,8 +174,8 @@ for automatic cli generation. For example:
 
 
 ## Partial parsing
-To allow the parser to parse only tokens it programmed to and ignore the rest just initialize the cli with
-the partial flag. After the parsing you can retrieve the unparsed tokens using the CliResult.unparsed_tokens() method.
+To allow the parser to parse only tokens it is programmed to and ignore the rest just initialize the cli with
+the partial flag. After parsing you can retrieve the unparsed tokens using the CliResult.unparsed_tokens() method **[TODO: explain format of the result. Is this a string? list? dictionary?]**.
 For example:
 
     result = cli.parse(partial=True)
@@ -178,7 +184,7 @@ For example:
     # do what you need here. 
 
 ## Arguments and Options types
-Arguments and options values can be of any type. The main restrition is that the type must support simple (i.e.
+Arguments and option values can be of any type. The main restriction is that the type must support simple (i.e.
 parameterized) cast from simple text (str) format. This means that most native python simple types are supported
 such as 'str', 'int', 'double', 'float', etc.
 For example:
@@ -193,9 +199,10 @@ For example:
         # from clitest2.py - a sample input:        
         $ ./clitest2.py user Jack 28 72.8 -m --spouse Maria
 
+**[TODO: for simplicity, why not rename 'argtype' and 'opttype' to 'type'?]**
 
-In addition compound values are supported via the Arrays(lists) and
-structures (dictionaries) support.
+In addition compound values are supported through Arrays(lists) and
+structures (dictionaries).
 Arrays are variable size lists of the same type and are denoted by '[' <type> ']'. For example an array of int
 variables is defined as [ int ].
 Structures are dictionaries of keys and values. Keys are strings, and the value can be of any type. For example a
@@ -205,8 +212,8 @@ Examples (from clitest2.py):
 
         child_cmd = cli.add_command("children", description="add children using array parameters and options")
         child_cmd.add_argument("number", argtype=int, description="number of children")
-        child_cmd.add_argument("ages", argtype=[int], description="age list of children")   # array of int example
-        child_cmd.add_option("names", opttype=[str], description="name list of children")   # array of str example
+        child_cmd.add_argument("ages", argtype=[int], description="list of children ages")   # array of int example
+        child_cmd.add_option("names", opttype=[str], description="list of children names")   # array of str example
 
         user_cmd = cli.add_command("person", description="add a person using a struct parameter")
         user_cmd.add_argument('record', argtype={ "name": str, "age" : int}, description="a person record")  # struct example
@@ -223,13 +230,13 @@ Examples (from clitest2.py):
 ## Nested types
 Types may be nested. For example
 
-        family_cmd = cli.add_command("family", description="add a famility using a compound parameter")
+        family_cmd = cli.add_command("family", description="add a family using a compound parameter")
         p = family_cmd.add_argument('members', argtype=[{ "name": str, "age" : int,
                                                         "children" : [ { "name" : str, "age" : int}] }],
                                   description="member records")  # array of struct example
         
         $ ./clitest2.py family [{ name = Sara, age = 34 }, {name = Joe, age=33, children = [{name = Mike, age=3}, {name = Dana, age=7}] }]
-        family is added. 
+        family has been added:
 	        {'members': [{'name': 'Sara', 'age': 34}, {'name': 'Joe', 'age': 33, 'children': [{'name': 'Mike', 'age': 3}, {'name': 'Dana', 'age': 7}]}]}
 
 
