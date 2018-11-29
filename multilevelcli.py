@@ -950,6 +950,21 @@ class MultiLevelCliBase(object):
                 raise CommandMissingArguments("Command %s requires more arguments than provided (provided arguments - %d)" % (self.full_name("."), argnum))
             return 1 + i  # one for the command token itself
 
+        def fill_description(self, name : str, type_str : str, desc : str, default_str: str):
+            if not desc or not isinstance(desc, str):
+                return ""
+            lines = desc.splitlines()
+            if default_str == None:     # an arg
+                out = textwrap.fill("%-20s %-10s %s" % (name, type_str, lines[0]),
+                                     width=MultiLevelCliBase.helpwidth, initial_indent="\t", subsequent_indent="\t\t\t\t\t") + "\n"
+            else:                       # an option
+                out = textwrap.fill("%-20s %-7s %s%s" % (name, type_str, lines[0], default_str),
+                                     width=MultiLevelCliBase.helpwidth, initial_indent = "\t", subsequent_indent="\t\t\t\t\t") + "\n"
+            # deal with the extra lines
+            for l in lines[1:]:
+                out += textwrap.fill(l, width=MultiLevelCliBase.helpwidth, initial_indent="\t\t", subsequent_indent="\t\t\t\t\t") + "\n"
+            return out
+
         def usage(self):
             """
             Generate a default usage screen for the current command.
@@ -995,8 +1010,9 @@ class MultiLevelCliBase(object):
                 out += "\nArguments:\n"
 
             for a in self.__arguments:
-                out += textwrap.fill("%-20s %-10s %s" % (a.name, type_str(a), desc_str(a.description)),
-                                     width=width, initial_indent = "\t", subsequent_indent="\t\t\t\t\t")
+                #out += textwrap.fill("%-20s %-10s %s" % (a.name, type_str(a), desc_str(a.description)),
+                #                     width=width, initial_indent = "\t", subsequent_indent="\t\t\t\t\t")
+                out += self.fill_description(a.name, type_str(a), a.description, None)
                 out += "\n"
 
             values1 = [ v for v in self.options.values() ]
@@ -1006,8 +1022,9 @@ class MultiLevelCliBase(object):
                 out += "\nOptions:\n"
 
             for o in options:
-                out += textwrap.fill("%-20s %-7s %s%s" % (option_str(o), type_str(o), desc_str(o.description), default_str(o.default)),
-                                     width=width, initial_indent = "\t", subsequent_indent="\t\t\t\t\t")
+                #out += textwrap.fill("%-20s %-7s %s%s" % (option_str(o), type_str(o), desc_str(o.description), default_str(o.default)),
+                #                     width=width, initial_indent = "\t", subsequent_indent="\t\t\t\t\t")
+                out += self.fill_description(option_str(o), type_str(o), desc_str(o.description), default_str(o.default))
                 out += "\n"
 
             return out
