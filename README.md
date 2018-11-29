@@ -47,7 +47,8 @@ and nested types.
 ## Parser
 The parser is the main class. You must create at least one MultiLevelArgParse instance and specify a name for it.
 For example:
-```
+
+```python
     cli = multilevelcli.MultiLevelArgParse("testcli1")
 ```
     
@@ -63,8 +64,10 @@ The add_command() function returns
 a command object. Store that object if you need to add options or arguments to it.
 For example:
 
+```python
     cli.add_command("version")
     list_cmd = cli.add_command("list", description="list all entities")
+```
     
 ## Argument
 Use the **add_argument()** to add a positional argument to a command (object). The arguments order is determined
@@ -73,7 +76,9 @@ A (command scope unique) name must be provided for each argument and is used to 
 An optional description can be provided as well as 
 argtype (see the _types_ section below). The default argtype is 'str'.
 
+```python
     list_cmd.add_argument("name", description="The name of the item to be listed")
+```
 
 ## Option
 Use the **add_option()** to add optional, non positional parameters to groups and/or commands.
@@ -83,8 +88,10 @@ A description is optional. If no opttype is provided the option is boolean (i.e.
 An option type can be of any supported type (see the _types_ section below).
 For example:
 
+```python
     cli.add_option('q', 'quiet', description="do not emit messages") # root (group) level option.  short (-q) and long (--quiet)
     list_cmd.add_option(None, 'id', description="id of the listed object") # command level option (only long - i.e., --id)
+```
     
 ## Group
 Group is used to create a new level of commands. In most cases it aggregates commands on a specific object or topic.
@@ -95,10 +102,12 @@ On each level, groups and commands may be used together. The resulting group obj
 be stored so that you can add options, groups and/or commands to it.
 For example:
 
+```python
     compute = cli.add_group("compute")
     instances = compute.add_group("instances")
     instances.add_command("list")
     instances.add_command("new")
+```
 
 ## CliResult 
 CliResult is the object returned at runtime by the cli parser's `cli.parse()` method. It contains the parsing results and the
@@ -142,6 +151,7 @@ Several predefined utility functions exist, for example _usage_and_raise_no_comm
 exception instead of exiting (so that the program can trap and handle it).
 For example:
 
+```python
     # root level default handling
     cli = MultiLevelArgParse("demo cli", defaultfn=usage_and_raise_no_command, help=usage_and_raise_help)
     # 'class' group default
@@ -152,6 +162,7 @@ For example:
     except NoCommand:
         print("No command was entered.  Valid commands:")
         cli.show_tree()
+```
 
 ## Help generation
 By default the options '-h' and '--help' call the default help function **defhelpfn** that is set to _usage_and_exit_.
@@ -160,36 +171,41 @@ initializtion. A help function is a function that accepts a single _MultiLevelCl
 Setting the help function to None disables the default help handling.
 For example:
 
+```python
     # group level help override
     alpha_group = cli.add_group("alpha", help=usage_help_and_raise_nocommand)
     # command level help override
     cmd = alpha_group.add_command("list", help=usage_help_and_raise_nocommand)
+```
 
 ## Command user context
 A user context can be set during command initialization. This context is returned via the
 namespace in the CliResult (see above). A different context can be set for each command. This is especially useful for automatic cli generation **[TODO: explain how]**. For example:
+```python
 
     beta_group.add_command("test", ctx="context")
     ...
     ctx = cli.parse().command_ctx()
-
+```
 
 ## Partial parsing
 To allow the parser to parse only tokens it is programmed to and ignore the rest just initialize the cli with
 the partial flag. After parsing you can retrieve the unparsed tokens using the CliResult.unparsed_tokens() method **[TODO: explain format of the result. Is this a string? list? dictionary?]**.
 For example:
+```python
 
     result = cli.parse(partial=True)
     tokens = result.unparsed_tokens()
     ...
     # do what you need here. 
+```
 
 ## Arguments and Options types
 Arguments and option values can be of any type. The main restriction is that the type must support simple (i.e.
 parameterized) cast from simple text (str) format. This means that most native python simple types are supported
 such as 'str', 'int', 'double', 'float', etc.
 For example:
-
+```python
         test_cmd = cli.add_command("user")
         test_cmd.add_argument('name', argtype=str)  # str is the default
         test_cmd.add_argument('age', argtype=int, description="in years")
@@ -199,6 +215,7 @@ For example:
 
         # from clitest2.py - a sample input:        
         $ ./clitest2.py user Jack 28 72.8 -m --spouse Maria
+```
 
 **[TODO: for simplicity, why not rename 'argtype' and 'opttype' to 'type'?]**
 
@@ -219,7 +236,8 @@ Examples (from clitest2.py):
 
         user_cmd = cli.add_command("person", description="add a person using a struct parameter")
         user_cmd.add_argument('record', argtype={ "name": str, "age" : int}, description="a person record")  # struct example
-
+```
+```
         $ ./clitest2.py children 2 [ 5, 11 ]
         children is added. 
 	        {'number': 2, 'ages': [5, 11]}
@@ -231,16 +249,17 @@ Examples (from clitest2.py):
 
 ## Nested types
 Types may be nested. For example
-
+```python
         family_cmd = cli.add_command("family", description="add a family using a compound parameter")
         p = family_cmd.add_argument('members', argtype=[{ "name": str, "age" : int,
                                                         "children" : [ { "name" : str, "age" : int}] }],
                                   description="member records")  # array of struct example
-        
+```
+```        
         $ ./clitest2.py family [{ name = Sara, age = 34 }, {name = Joe, age=33, children = [{name = Mike, age=3}, {name = Dana, age=7}] }]
         family has been added:
 	        {'members': [{'name': 'Sara', 'age': 34}, {'name': 'Joe', 'age': 33, 'children': [{'name': 'Mike', 'age': 3}, {'name': 'Dana', 'age': 7}]}]}
-
+```
 
 # Examples
 ## Example 1: A single command example:
