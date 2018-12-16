@@ -28,17 +28,35 @@ class Namespace(object):
             yield t
 
     def __getitem__(self, item, default=None):
-        return self.__dict__.get(item, default)
+        '''
+        Lookup for item with support for nested '.' notation.
+        :param item:
+        :param default:
+        :return:
+        '''
+        if item in self.__dict__:
+            return self.__dict__.get(item)
+        # generate a sub ns
+        ns = Namespace()
+        item += "."
+        for k in self.__dict__:
+            if k.startswith(item):
+                ns[k[len(item):]] = self.__dict__[k]
+        if not ns:
+            return None
+        return ns
 
     def __setitem__(self, item, value):
         return self.__dict__.__setitem__(item, value)
 
     def __getattr__(self, item):
-        return self.__dict__.get(item, None)
+        return self.__getitem__(item)
 
     def __str__(self):
         return str(self.__dict__)
 
+    def __repr__(self):
+        return str(self.__dict__)
 
 class CliResult(object):
     """
@@ -98,6 +116,7 @@ class CliResult(object):
         if level > self.__max_level + 1:
             raise ParseExecption("validate_level at level %s has bad level (max %d)" % (level, self.__max_level))
         if level > self.__max_level:
+            ns = Namespace()
             self.__levels_ns.append(Namespace())
             self.__max_level += 1
 
@@ -125,7 +144,7 @@ class CliResult(object):
         return self.__ns.__getitem__(item, default)
 
     def __getattr__(self, item):
-        return self.__ns.__getattr__(item)
+        return self.__ns[item]
 
     def levels(self):
         """
@@ -158,6 +177,9 @@ class CliResult(object):
         :return: Command object or None of no command is parsed.
         """
         return self.__command
+
+    def command_name(self):
+        return self.__command.full_name(".") if self.__command else ""
 
     def args(self):
         """
@@ -411,7 +433,7 @@ class MultiLevelCliBase(object):
                 return ""
             return self.parent.full_name(sep, lastsep=True) + self.name + (sep if lastsep else "")
 
-        def add_option(self, short, long = None, name=None, opttype=None, description=None, default=None):
+        def add_option(self, short, long = None, name=None, type=None, description=None, default=None):
             """
             Add an option to the current command/group. Options may have short name and/or long name. In addition if
             'name' is provided it is used as the target name. If name is not given then the long name is used,
@@ -419,7 +441,7 @@ class MultiLevelCliBase(object):
             :param short: the optional short name.
             :param long: the optional long name.
             :param name: the optional target (namespace variable) name. See above for the name resolution.
-            :param opttype: the python type of the argument or None if the option is a flag. The type must be one that
+            :param type: the python type of the argument or None if the option is a flag. The type must be one that
                     supports conversion from string to it.
             :param description: an optional description to be used in the help/usage screens.
             :param default: an optional value to be used if the option is not provided. The default must be of the same
@@ -428,7 +450,7 @@ class MultiLevelCliBase(object):
             """
             if not name:
                 name = long if long else short
-            return self.__add_option(MultiLevelCliBase.OptionType(short, long, self, name=name, opttype=opttype, description=description, default=default))
+            return self.__add_option(MultiLevelCliBase.OptionType(short, long, self, name=name, opttype=type, description=description, default=default))
 
         def __add_option(self, opt):
             assert isinstance(opt, MultiLevelCliBase.OptionType)
@@ -472,15 +494,15 @@ class MultiLevelCliBase(object):
             # if set, use longname as var name
             for o in self.longoptions.values():
                 val = o.default if (o.argtype is not None or o.default is not None) else False
-                cli[self.full_name(".", lastsep=True) + o.long] = val
-                cli.set_command_options(self.level, o.long, o, val)
+                cli[self.full_name(".", lastsep=True) + o.name] = val
+                cli.set_command_options(self.level, o.name, o, val)
             # process options that have only short version
             for o in self.options.values():
                 if o not in self.longoptions.values():
                     val = o.default if (o.argtype is not None or o.default is not None) else False
                     if o.default is not None:
-                        cli[self.full_name(".", lastsep=True) + o.short] = val
-                        cli.set_command_options(self.level, o.short, o, val)
+                        cli[self.full_name(".", lastsep=True) + o.name] = val
+                        cli.set_command_options(self.level, o.name, o, val)
 
     class ArgType(object):
         """
@@ -489,13 +511,17 @@ class MultiLevelCliBase(object):
         argtype is either a terminal type: int, str, float, etc., array [], or struct {}.
         Nested types are supported. For example [ { key1 : int, key2 : str, key2 : [int] } ]
         """
-        def __init__(self, name, parent, argtype=str, description=None):
+
+        def check_type(self, argtype):
+            assert isinstance(argtype, (type, list, dict, MultiLevelCliBase.ArgType))
+
+        def __init__(self, name, parent, type=str, description=None):
             assert isinstance(name, (str, unicode))
             #print ("ArgType: %s" % argtype)
-            assert isinstance(argtype, (type, list, dict, MultiLevelCliBase.ArgType))
             assert isinstance(parent, (MultiLevelCliBase.ParseBase, MultiLevelCliBase.ArgType, MultiLevelCliBase.OptionType))
             self.name = name
-            self.argtype = argtype
+            self.argtype = type
+            self.check_type(self.argtype)
             self.description = description
             self.parent = parent
 
@@ -508,7 +534,7 @@ class MultiLevelCliBase(object):
                     val = nested.args()[self.argtype.name]
                 else:
                     val = (self.argtype)(MultiLevelCliBase.strip(arg))
-                cli[self.name] = val
+                cli[self.full_name(".", lastsep=True) + self.name] = val
                 cli.add_command_arg(self, val)
             except Exception:
                 raise ArgumentTypeError("Parse error at token '%s' [arg %s], can't convert to type %s" % (
@@ -575,7 +601,7 @@ class MultiLevelCliBase(object):
                     raise ArgumentTypeError("ListType: Parse error at token '%s' [arg %s], can't convert to type %s" % (
                         arg, self.full_name(".", lastsep=True) + self.name, self.argtype))
             # update the result cli structures only if I am not neseted arg
-            cli[self.name] = array
+            cli[self.full_name(".", lastsep=True) + self.name] = array
             cli.add_command_arg(self, array)
             return 1  # consume only optname
 
@@ -610,7 +636,7 @@ class MultiLevelCliBase(object):
             arglist = arglist[1:-1] # remove  { }
 
             args = MultiLevelCliBase.tokenize(arglist, sep=[','])
-            struct = {}
+            struct = Namespace()
             for arg in args:
                 try:
                     keyval = MultiLevelCliBase.tokenize(arg, sep=['='])
@@ -636,7 +662,7 @@ class MultiLevelCliBase(object):
                         raise
                     raise ArgumentTypeError("ListType: Parse error at token '%s' [arg %s], can't parse to type %s" % (
                         arg, self.parent.full_name(".", lastsep=True) + self.name, self.argtype))
-            cli[self.name] = struct
+            cli[self.full_name(".", lastsep=True) + self.name] = struct
             cli.add_command_arg(self, struct)
             return 1  # consume only optname
 
@@ -667,7 +693,7 @@ class MultiLevelCliBase(object):
             assert not long or isinstance(long, (str,unicode))
             assert short or long
             #assert not opttype or isinstance(opttype, type)
-            assert default is None or isinstance(default, opttype)
+            assert default is None or type(default) == opttype
             assert isinstance(name, (str,unicode))
             assert isinstance(parent, MultiLevelCliBase.ParseBase)
             self.parent = parent
@@ -713,10 +739,10 @@ class MultiLevelCliBase(object):
                     not handled. The user can still define it and handle it manually.
             """
             assert isinstance(name, (str,unicode))
-            MultiLevelCliBase.ParseBase.__init__(self, name, parent, description, helpfn=helpfn)
             self.commands = {}
             self.groups = {}
             self.defaultfn = defaultfn
+            MultiLevelCliBase.ParseBase.__init__(self, name, parent, description, helpfn=helpfn)
 
         def __contains__(self, name):
             return name in self.groups or name in self.commands
@@ -726,6 +752,15 @@ class MultiLevelCliBase(object):
                 return self.groups[item]
             else:
                 return self.commands[item]
+
+        def add_option(self, short, long = None, name=None, type=None, description=None, default=None):
+            assert not short or not short in self.groups
+            assert not long or not long in self.groups
+            assert not short or not short in self.commands
+            assert not long or not long in self.commands
+            MultiLevelCliBase.ParseBase.add_option(self, short, long = long, name=name, type=type, description=description, default=default)
+            assert not self.name in self.groups
+            assert not self.name in self.commands
 
         def usage(self):
             """
@@ -813,6 +848,7 @@ class MultiLevelCliBase(object):
         def __add_command(self, cmd):
             assert isinstance(cmd, MultiLevelCliBase.CommandType)
             assert cmd.name not in self.commands
+            assert cmd.name not in self.groups
             self.commands[cmd.name] = cmd
             return cmd
 
@@ -829,6 +865,7 @@ class MultiLevelCliBase(object):
         def __add_group(self, group):
             assert isinstance(group, MultiLevelCliBase.GroupType)
             assert group.name not in self.groups
+            assert group.name not in self.commands
             self.groups[group.name] = group
             return group
 
@@ -889,20 +926,25 @@ class MultiLevelCliBase(object):
             self.__arguments = []
             self.__ctx = ctx    # user defined ctx
 
-        def add_argument(self, name, argtype=str, description=None):
-            """
-            Add a new (mandatory) argument for the current command.
-            :param name: to be used as the namespace target.
-            :param argtype: python type that converted from string.
-            :param description: used by help/usage screeds.
-            :return: The new argument.
-            """
+        def _add_argument(self, name, argtype=str, description=None):
             if type(argtype) is list:
-                return self.__add_argument(MultiLevelCliBase.ListType(name, self, argtype=argtype, description=description))
+                return self.__add_argument(
+                    MultiLevelCliBase.ListType(name, self, argtype=argtype, description=description))
             if type(argtype) is dict:
                 return self.__add_argument(MultiLevelCliBase.StructType(name, self, argtype=argtype, description=description))
             if type(argtype) is type:
-                return self.__add_argument(MultiLevelCliBase.ArgType(name, self, argtype=argtype, description=description))
+                return self.__add_argument(MultiLevelCliBase.ArgType(name, self, type=argtype, description=description))
+            raise ParseExecption("%s: unknown type: %s" % (self.full_name(),argtype))
+
+        def add_argument(self, name, type=str, description=None):
+            """
+            Add a new (mandatory) argument for the current command.
+            :param name: to be used as the namespace target.
+            :param type: python type that converted from string.
+            :param description: used by help/usage screeds.
+            :return: The new argument.
+            """
+            return self._add_argument(name, argtype=type, description=description)
 
         def __add_argument(self, arg):
             assert isinstance(arg, MultiLevelCliBase.ArgType)
@@ -1262,7 +1304,7 @@ def test_main():
     # Test cli definitions
     cli = MultiLevelArgParse("demo cli", defaultfn=usage_and_raise_no_command, help=usage_and_raise_help)
     assert isinstance(cli, MultiLevelArgParse)
-    cli.add_option("t", "treelevels", opttype=int, default=7, description="max tree levels to process")
+    cli.add_option("t", "treelevels", type=int, default=7, description="max tree levels to process")
     cli.add_option("q", "quiet", description="do not emit messages")
     cli.add_command("list")
     cli.add_command("help")
@@ -1273,15 +1315,15 @@ def test_main():
     cmd = class_group.add_command("new", description="create a new service class")
     cmd.add_argument("name", description="The name of the new class")
     cmd.add_argument("capacity_unit", description="Size of capacity unit in GB")
-    cmd.add_option("x", "max_units", opttype=int, description="Maximal number of capacity units", default=10)
-    cmd.add_option("m", "min_units", opttype=int, description="Minimal number of capacity units", default=3)
+    cmd.add_option("x", "max_units", type=int, description="Maximal number of capacity units", default=10)
+    cmd.add_option("m", "min_units", type=int, description="Minimal number of capacity units", default=3)
     new = cmd
 
     cmd = class_group.add_command("list")
     cmd.add_option("l", description="use long listing format")  # only short
     cmd.add_option(None, "long", description="show additional attiributes")
-    cmd.add_option("c", opttype=int, description="columes number")  # only short
-    cmd.add_option(None, "format", opttype=str, description="use specificed format", default="def")
+    cmd.add_option("c", type=int, description="columes number")  # only short
+    cmd.add_option(None, "format", type=str, description="use specificed format", default="def")
     lst = cmd
 
     class_group.add_command("info")
@@ -1291,28 +1333,28 @@ def test_main():
     cmd = instance_group.add_command("new")
     cmd.add_argument("name", description="The name of the new class")
     cmd.add_argument("type", description="The type of the new class")
-    cmd.add_argument("size", argtype=int, description="The name of the new class")
+    cmd.add_argument("size", type=int, description="The name of the new class")
     cmd.add_option("r", "random", description="set random instance")
-    cmd.add_option("l", "log", opttype=int, description="log level", default=5)
-    cmd.add_option("k", "key", opttype=str, description="security key")
+    cmd.add_option("l", "log", type=int, description="log level", default=5)
+    cmd.add_option("k", "key", type=str, description="security key")
     instance = cmd
 
     instance_group.add_command("list")
 
     cmd = instance_group.add_command("info")
-    cmd.add_argument("item", description="list of instances ids", argtype=[str])
-    cmd.add_option(None, "ids", description="force resize", opttype=[int])
-    cmd.add_option(None, "cred", description="force cred", opttype=dict(password=str, user=str, userid=int))
-    cmd.add_option(None, "complex", description="nested arrays", opttype=[[int]])
-    cmd.add_option(None, "complexs", description="nested arrays", opttype=[[str]])
-    cmd.add_option(None, "complexst", description="nested struct arrays", opttype=[{ 'key1' : str, 'key2' : int}])
-    cmd.add_option(None, "complexstar", description="nested struct arrays", opttype=[{ 'key1' : str, 'key2' : int, 'key3' : [int]}])
+    cmd.add_argument("item", description="list of instances ids", type=[str])
+    cmd.add_option(None, "ids", description="force resize", type=[int])
+    cmd.add_option(None, "cred", description="force cred", type=dict(password=str, user=str, userid=int))
+    cmd.add_option(None, "complex", description="nested arrays", type=[[int]])
+    cmd.add_option(None, "complexs", description="nested arrays", type=[[str]])
+    cmd.add_option(None, "complexst", description="nested struct arrays", type=[{'key1' : str, 'key2' : int}])
+    cmd.add_option(None, "complexstar", description="nested struct arrays", type=[{'key1' : str, 'key2' : int, 'key3' : [int]}])
 
     cmd = instance_group.add_command("check")
-    cmd.add_argument("complexstar", description="nested struct arrays arg", argtype=[{ 'key1' : str, 'key2' : int, 'key3' : [int]}])
+    cmd.add_argument("complexstar", description="nested struct arrays arg", type=[{'key1' : str, 'key2' : int, 'key3' : [int]}])
 
     cmd = instance_group.add_command("set")
-    cmd.add_argument("cred", description="cred", argtype=dict(password=str, user=str, userid=int))
+    cmd.add_argument("cred", description="cred", type=dict(password=str, user=str, userid=int))
 
     cmd = instance_group.add_command("resize")
     cmd.add_option(None, "force", description="force resize")
@@ -1321,8 +1363,8 @@ def test_main():
     cmd = alpha_group.add_command("list", help=usage_help_and_raise_nocommand)
     cmd.add_option("l", description="use long listing format")  # only short
     cmd.add_option(None, "long", description="show additional attiributes")
-    cmd.add_option("c", opttype=int, description="columns number")  # only short
-    cmd.add_option(None, "format", opttype=str, description="use specified format", default="def")
+    cmd.add_option("c", type=int, description="columns number")  # only short
+    cmd.add_option(None, "format", type=str, description="use specified format", default="def")
 
     beta_group = cli.add_group("beta", help=None)
     beta_group.add_command("test", ctx="context")

@@ -110,22 +110,29 @@ For example:
 ```
 
 ## CliResult 
-CliResult is the object returned at runtime by the cli parser's `cli.parse()` method. It contains the parsing results and the
-final values of the selected command, the command parameters and the options. Seperate namespaces
-(dictionaries) are maintained for each level.
+CliResult is the object returned at runtime by the cli parser's `cli.parse()` method. It contains the parsing results
+and the final values of the selected command, the command parameters and the options. Separate namespaces
+(see below) are maintained for each level.
 The most significant methods are:
-- .**command**() - returns the command object matching the user's input
-- .**group**() - returns the group to which the command belongs
-- .**args**() - returns the selected command arguments namespace
-- .**opt**() - returns the selected command options namespace
-- .**ns**(level=None) - return the requested level namespace, and the command level namespace by default
+- .**command_name**() - returns the command name (str) selected by the user
+- .**args**() - returns the selected command arguments namespace. Each argument is a key, and the parsed user input is
+its value. 
+- .**opt**() - returns the selected command options namespace. Options apper in this namespace if set by user and/or they
+have a default value.
+- .**ns**() - Return a global namespace containing all options and arguments gathered
+from all levels. The options and argument keys are set in full path format where the group and command(s)
+are added to the name
+and seperated by a dot. So, for example, if you have a command "vms instances new <id>" the id argument key in the namespace
+will be "vms.instances.new.name".
+- .**command**() - returns the command _object_ matching the user's input
+- .**group**() - returns the group _object_ to which the command belongs
 - .**unparsed_tokens**() - return the tokens that were not parsed. This is required  during partial parsing.
 - .**command_ctx**() - get the user defined command context (see below)
 
 ## Namespace
-The multilevelcli parser returns a namespace object that provides flat namespace (dictionary) of all options
-and arguments set during parsing and also per level dictionaries.
-**[TODO: further explanation required]**
+A namespace is a python dictionary with some convenience function to allow accessing the dictionary keys
+as members, and nested names lookup are supported too (e.g. you can lookup 'vms.instances.new.name' ). So instead of
+using the standard python dict lookup _a["key"]_ you can do just _a.key_.
 
 ## Command tree generation
 A complete command tree listing all groups and the commands in each group can be printed
@@ -212,7 +219,8 @@ For example:
         test_cmd.add_argument('weight', argtype=float, description="in KG")
         test_cmd.add_option('m', 'married')     # default boolean/flag option
         test_cmd.add_option(None, 'spouse', opttype=str)    # string value for option
-
+```
+```
         # from clitest2.py - a sample input:        
         $ ./clitest2.py user Jack 28 72.8 -m --spouse Maria
 ```
@@ -297,7 +305,7 @@ The help screen can be shown by using the automatic -h/--help option.
     Sub Commands:
         list
 
-### Example 2 (testcli2.py):
+### Example 2 (based on testcli2.py):
 ```python
 #!/usr/bin/env python3
 
@@ -350,16 +358,24 @@ if __name__ == "__main__":
             cli.show_tree()
         elif command == "syntax":
             cli.show_systax()
-        elif command in ["user", "person", "children", "family"]:
-            print("%s is added. \n\t%s\n" % (command, ns.args()))
-
+        elif command in ["user", "person", "children"]:
+            if not ns.quiet:
+                print("%s is added. \n\t%s\n" % (command, ns.args()))
+        elif command == 'family':
+            if not ns.quiet:
+                for m in ns.members:
+                    print("Adding family member %s age %d" % (m['name'], m['age']))
+                    if not "children" in m:
+                        continue
+                    for c in m["children"]:
+                        print("\tChildren %s age %d" % (c['name'], c['age']))
         # other commands...
 
     except Exception as e:
         print("Error: " + str(e))
         sys.exit(1)
 
-    print ("### Success! namespace='%s'" % str(ns))
+    print ("\n### Success! namespace='%s'" % str(ns))
     print ("ns: %s" % ns.ns())
     print ("group: %s" % ns.group())
     print ("command: '%s'" % ns.command())

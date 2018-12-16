@@ -8,12 +8,12 @@ if __name__ == "__main__":
     try:
         cli = multilevelcli.MultiLevelArgParse("testcli1")
         assert isinstance(cli, multilevelcli.MultiLevelArgParse)
-        cli.add_option("t", "treelevels", opttype=int, default=7, description="max tree levels to process")
+        cli.add_option("t", "treelevels", type=int, default=7, description="max tree levels to process")
         cli.add_option("q", "quiet", description="do not emit messages")
         cli.add_command("list")
         ns = cli.parse()
 
-        if str(ns.command()) == "list":
+        if ns.command_name() == "list":
             print("This is the listing")
             print()
             print("--------------")
