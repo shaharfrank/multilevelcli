@@ -54,29 +54,36 @@ class RESTClient(object):
             return p
         #<scheme>://<netloc>/<path>?<query>#<fragment>
         o = urlparse(p)
-        if o.scheme == "file":
-            return p    # local file access - do not resolve
-        new = urlunsplit((self.url.scheme, self.url.netloc, o.path, o.query, o.fragment))
-        #print("------%s  : %s -> %s" % (str(o), self.url, new))
+        if self.initial_load:
+            new = urlunsplit(("file", '', '/tmp/efaas.json', '', ''))
+            self.initial_load = False
+        else:
+            new = urlunsplit((self.url.scheme, self.url.netloc, o.path, o.query, o.fragment))
+        debug("------%s  : %s -> %s" % (str(o), self.url, new))
         return new
 
     def __init__(self, schema, security=None, url=None):
-        log.info("### RESTClient using %s, security %s" % (schema, str(security)))
+        log.info("### RESTClient using %s, server url='%s' security %s" % (schema, url, str(security)))
         # create a App with a local resource file
 
         # load Swagger resource file into App object
         self.url = urlparse(url) if url else None
+        self.schema = schema
+        #self.initial_load = True
         self.app = App.load(schema, url_load_hook=self.resolve if url else None)
         self.app.prepare(True)
+        #self.serverapp = App(url_load_hook=self.resolve)
+        #self.serverapp.prepare() = App(url_load_hook=self.resolve)
 
         # init Security for authorization
         auth = Security(self.app)
+        #auth = Security(self.serverapp)
         if security:
             assert "auth_type" in security
             assert "params" in security
             auth.update_with(security["auth_type"], security["params"])
             #auth.update_with('simple_basic_auth', ('user', 'password'))  # basic auth
-            #auth.update_with('api_key', 'AIzaSyCGz66g5Fdfm--tWEhxCS1drcO1_CjKC-U')  # api key
+            #auth.update_with('api_key', '')  # api key
             #auth.update_with('simple_oauth2', '12334546556521123fsfss')  # oauth2
 
         # init the client
@@ -138,7 +145,8 @@ class RESTClient(object):
             reply = self.client.request((req, resp))
             out = reply.data
         except Exception as e:
-            panic("post_req: op %s failed: %s" % (cmd.full_name("."), str(e)), 1)
+            #info("post_req: op %s failed: %s" % (cmd.full_name("."), str(e)))
+            raise
         if resp.status not in expected:
             raise ResultError(cmd.full_name("."), resp.status, resp.raw)
         if out is None:
@@ -162,7 +170,7 @@ class RESTClient(object):
             d = o["properties"][p]
             if d.get("default", None):
                 obj[p] = d["default"]
-            elif p in o["required"]:
+            elif p in o.get("required", []):
                 obj[p] = None   # to be filled later!
 
         debug("get_object: '%s':" % (object_name), obj)
@@ -304,7 +312,7 @@ class CliParser(object):
             d = o["properties"][p]
             if d.get("default", None):
                 obj[p] = d["default"]
-            elif p in o["required"]:
+            elif p in o.get("required", []):
                 obj[p] = None   # to be filled later!
 
         debug("get_object: '%s':" % (object_name), obj)
@@ -337,7 +345,7 @@ class CliParser(object):
             t = self.resolve_type(d.get("type"), ref)
             format = d.get("format")
             default =  d.get("default", None)
-            required = p in o["required"]
+            required = p in o.get("required", [])
             dict_desc += "\n* %s (%s) \t%s %s %s " % (p, t.__name__, desc, "Default is %s" % default if default else "", "[required]" if required else "")
             ndesc = ""
             if t == object:
@@ -352,12 +360,12 @@ class CliParser(object):
         o = self.app.resolve(ref).dump()
         for p in o["properties"]:
             d = o["properties"][p]
-            desc = d.get("description")
+            desc = d.get("description", "")
             ref = d.get("$ref")
             t = self.resolve_type(d.get("type"), ref)
             format = d.get("format")
             default =  d.get("default", None)
-            required = p in o["required"]
+            required = p in o.get("required", [])
             ndesc = ""
             if t == object:
                 t, ndesc = self.resolve_struct(cmd, ref)
