@@ -26,8 +26,9 @@ def info(msg, json_data = None):
         log.info(msg)
 
 
-def panic(msg, code = 0):
-    if code:
+def panic(msg, code = 1, trace=False):
+    log.error("PANIC: %s" % msg)
+    if trace:
         traceback.print_exc()
     sys.exit(code)
 
@@ -55,7 +56,7 @@ class RESTClient(object):
         #<scheme>://<netloc>/<path>?<query>#<fragment>
         o = urlparse(p)
         if self.initial_load:
-            new = urlunsplit(("file", '', '/tmp/efaas.json', '', ''))
+            new = urlunsplit(("file", '', self.schema, '', ''))
             self.initial_load = False
         else:
             new = urlunsplit((self.url.scheme, self.url.netloc, o.path, o.query, o.fragment))
@@ -66,11 +67,20 @@ class RESTClient(object):
         log.info("### RESTClient using %s, server url='%s' security %s" % (schema, url, str(security)))
         # create a App with a local resource file
 
+        if not schema:
+            panic("No schema URL: please provide a URL or a local path")
         # load Swagger resource file into App object
-        self.url = urlparse(url) if url else None
+        self.initial_load = False
         self.schema = schema
-        #self.initial_load = True
-        self.app = App.load(schema, url_load_hook=self.resolve if url else None)
+        if url:
+            self.url = urlparse(url)
+            if schema:
+                self.initial_load = True
+            self.app = App.load(url, url_load_hook=self.resolve if url else None)
+        else:
+            # Server url is not specified. In this case the server is taken from the schema.
+            self.app = App.load(schema, url_load_hook=self.resolve if url else None)
+
         self.app.prepare(True)
         #self.serverapp = App(url_load_hook=self.resolve)
         #self.serverapp.prepare() = App(url_load_hook=self.resolve)
