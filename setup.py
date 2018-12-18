@@ -7,7 +7,7 @@ setuptools.setup(
     name="multilevelcli",
     version="0.0.1",
     author="Shahar Frank",
-    author_email="shaharf@example.com",
+    author_email="shahar.frank@example.com",
     description="A CLI parsing system for multi level CLI ('Cisco like CLI')",
     long_description=long_description,
     long_description_content_type="text/markdown",
