@@ -187,7 +187,8 @@ For example:
 
 ## Command user context
 A user context can be set during command initialization. This context is returned via the
-namespace in the CliResult (see above). A different context can be set for each command. This is especially useful for automatic cli generation **[TODO: explain how]**. For example:
+namespace in the CliResult (see above). A different context can be set for each command. This is especially useful for automatic cli generation where the context 
+can be used to connect the command to an operation specific object. For example:
 ```python
 
     beta_group.add_command("test", ctx="context")
@@ -197,7 +198,7 @@ namespace in the CliResult (see above). A different context can be set for each 
 
 ## Partial parsing
 To allow the parser to parse only tokens it is programmed to and ignore the rest just initialize the cli with
-the partial flag. After parsing you can retrieve the unparsed tokens using the CliResult.unparsed_tokens() method **[TODO: explain format of the result. Is this a string? list? dictionary?]**.
+the partial flag. After parsing you can retrieve the unparsed tokens array (list of strings) using the CliResult.unparsed_tokens() method.
 For example:
 ```python
 
@@ -225,7 +226,6 @@ For example:
         $ ./clitest2.py user Jack 28 72.8 -m --spouse Maria
 ```
 
-**[TODO: for simplicity, why not rename 'argtype' and 'opttype' to 'type'?]**
 
 In addition compound values are supported through Arrays(lists) and
 structures (dictionaries).
