@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="multilevelcli",
-    version="0.0.1",
+    version="0.0.2",
     author="Shahar Frank",
     author_email="shahar.frank@example.com",
     description="A CLI parsing system for multi level CLI ('Cisco like CLI')",
