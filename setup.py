@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.0.1",
     author="Shahar Frank",
     author_email="shaharf@example.com",
-    description="A CLI parsing system for multi level CLI ('Cisco like CLI'),
+    description="A CLI parsing system for multi level CLI ('Cisco like CLI')",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/shaharfrank/multilevelcli",
